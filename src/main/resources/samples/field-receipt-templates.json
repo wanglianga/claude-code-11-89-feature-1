@@ -1,0 +1,109 @@
+{
+  "_comment": "随题提供的模拟现场回执模板。assignmentId 由 replay.py 按当前派工单注入。",
+  "templates": {
+    "I3_SCOUT_ARRIVAL": {
+      "type": "ARRIVAL",
+      "eventAt": "2026-11-26T04:25:00+08:00",
+      "note": "勘查一班到场，听漏并检查阀井，初判 V3 阀杆失灵导致 S3 失压"
+    },
+    "I2_C1_ARRIVAL": {
+      "type": "ARRIVAL",
+      "eventAt": "2026-11-26T05:05:00+08:00",
+      "note": "维修三班到场，设置围挡"
+    },
+    "I2_C1_ISOLATION": {
+      "type": "ISOLATION",
+      "eventAt": "2026-11-26T05:20:00+08:00",
+      "note": "关闭 V2 并挂牌，POP-V2 操作票锁定"
+    },
+    "I2_C1_REPAIR": {
+      "type": "REPAIR",
+      "eventAt": "2026-11-26T06:10:00+08:00",
+      "note": "更换破损管段与密封件"
+    },
+    "I2_C1_FLUSH": {
+      "type": "FLUSH",
+      "eventAt": "2026-11-26T06:35:00+08:00",
+      "note": "消火栓排放冲洗，水质变清"
+    },
+    "I2_C1_REPRESSURE_FAIL": {
+      "type": "REPRESSURE",
+      "eventAt": "2026-11-26T06:50:00+08:00",
+      "readingCode": "PR-S2-FAIL",
+      "note": "首次复压仍偏低，核验未过"
+    },
+    "I2_C2_ARRIVAL": {
+      "type": "ARRIVAL",
+      "eventAt": "2026-11-26T07:25:00+08:00",
+      "note": "重新派工后再次到场，返工检查旁通阀"
+    },
+    "I2_C2_ISOLATION": {
+      "type": "ISOLATION",
+      "eventAt": "2026-11-26T07:40:00+08:00",
+      "note": "重新确认 V2 隔离状态"
+    },
+    "I2_C2_REPAIR": {
+      "type": "REPAIR",
+      "eventAt": "2026-11-26T08:20:00+08:00",
+      "note": "发现旁通内漏并完成处理"
+    },
+    "I2_C2_FLUSH": {
+      "type": "FLUSH",
+      "eventAt": "2026-11-26T08:45:00+08:00",
+      "note": "二次冲洗合格"
+    },
+    "I2_C2_REPRESSURE_OK": {
+      "type": "REPRESSURE",
+      "eventAt": "2026-11-26T09:05:00+08:00",
+      "readingCode": "PR-S2-OK",
+      "note": "复压 0.31MPa，校时容差核验通过"
+    },
+    "I3_ISOLATION": {
+      "type": "ISOLATION",
+      "eventAt": "2026-11-26T09:35:00+08:00",
+      "note": "维修三班关闭 V3"
+    },
+    "I3_REPAIR": {
+      "type": "REPAIR",
+      "eventAt": "2026-11-26T10:20:00+08:00",
+      "note": "更换 V3 阀杆并修复漏点"
+    },
+    "I3_FLUSH": {
+      "type": "FLUSH",
+      "eventAt": "2026-11-26T10:50:00+08:00",
+      "note": "S3 冲洗完成"
+    },
+    "I3_REPRESSURE_OK": {
+      "type": "REPRESSURE",
+      "eventAt": "2026-11-26T11:10:00+08:00",
+      "readingCode": "PR-S3-OK",
+      "note": "S3 复压 0.28MPa 合格"
+    },
+    "I1_ARRIVAL": {
+      "type": "ARRIVAL",
+      "eventAt": "2026-11-26T13:05:00+08:00",
+      "note": "维修三班到场，等待 V1 操作窗口；压力复核随即推翻边界"
+    },
+    "I1_ISOLATION": {
+      "type": "ISOLATION",
+      "eventAt": "2026-11-26T13:20:00+08:00",
+      "note": "按更正后方案关闭 V2"
+    },
+    "I1_REPAIR": {
+      "type": "REPAIR",
+      "eventAt": "2026-11-26T13:50:00+08:00",
+      "note": "处理 S2 实际漏点"
+    },
+    "I1_FLUSH": {
+      "type": "FLUSH",
+      "eventAt": "2026-11-26T14:05:00+08:00",
+      "note": "冲洗完成"
+    },
+    "I1_REPRESSURE_OK": {
+      "type": "REPRESSURE",
+      "eventAt": "2026-11-26T14:20:00+08:00",
+      "readingCode": "PR-S2-PM",
+      "note": "按更正后的 S2 区间复压合格"
+    }
+  }
+}

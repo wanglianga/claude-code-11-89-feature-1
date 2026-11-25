@@ -1,0 +1,94 @@
+{
+  "_comment": "随题提供的模拟报修。expect* 字段供 replay.py 核对自动归属判断。",
+  "initial": [
+    {
+      "key": "R1",
+      "expectStatus": "MATCHED",
+      "expectSegments": ["S2"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0001",
+        "callerPhone": "13900000001",
+        "rawAddress": "幸福路1号院门口",
+        "description": "凌晨暴雨后水压一直很低，热水器打不着，同支管两端都有邻居反映",
+        "receivedAt": "2026-11-26T03:05:00+08:00",
+        "photoRefs": ["photos/r1-pressure-gauge.jpg"]
+      }
+    },
+    {
+      "key": "R2",
+      "expectStatus": "MATCHED",
+      "expectSegments": ["S2"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0002",
+        "callerPhone": "13900000002",
+        "rawAddress": "幸福路8号",
+        "description": "幸福路北端消防栓放水都没力，低压报警，和1号在同一条支管两头",
+        "receivedAt": "2026-11-26T03:12:00+08:00",
+        "photoRefs": []
+      }
+    },
+    {
+      "key": "R4",
+      "expectStatus": "MATCHED",
+      "expectSegments": ["S3"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0003",
+        "callerPhone": "13900000003",
+        "rawAddress": "滨河巷1号",
+        "description": "与幸福路报修点相隔不到一百米的相邻街道积水，已经没过脚踝，疑似另一处阀门故障",
+        "receivedAt": "2026-11-26T03:18:00+08:00",
+        "photoRefs": ["photos/r4-flood-1.jpg", "photos/r4-flood-2.jpg"]
+      }
+    },
+    {
+      "key": "R5",
+      "expectStatus": "AMBIGUOUS",
+      "expectCandidateSegments": ["S2", "S3"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0004",
+        "callerPhone": "13900000004",
+        "rawAddress": "幸福路与滨河巷交叉口往东一点路面渗水冒水",
+        "description": "位置正好在两条相邻支管之间，说不清属于哪条街",
+        "receivedAt": "2026-11-26T03:22:00+08:00",
+        "lng": 120.002615,
+        "lat": 30.001365
+      }
+    },
+    {
+      "key": "R6",
+      "expectStatus": "AMBIGUOUS",
+      "expectCandidateSegments": ["S2", "S3"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0005",
+        "callerPhone": "13900000005",
+        "rawAddress": "幸福里6栋楼下积水",
+        "description": "同一栋楼两个单元分别临幸福路和滨河巷，物业也不能确定是哪根支管",
+        "receivedAt": "2026-11-26T03:26:00+08:00"
+      }
+    },
+    {
+      "key": "R7",
+      "expectStatus": "MATCHED",
+      "expectSegments": ["S1"],
+      "body": {
+        "hotlineCallId": "HC-20261126-0006",
+        "callerPhone": "13900000006",
+        "rawAddress": "建设路3号",
+        "description": "建设路支管低压，门口压力监测表读数偏低",
+        "receivedAt": "2026-11-26T03:31:00+08:00"
+      }
+    }
+  ],
+  "redial": {
+    "key": "R3",
+    "redialOfKey": "R1",
+    "body": {
+      "hotlineCallId": "HC-20261126-0001",
+      "callerPhone": "13900000001",
+      "rawAddress": "幸福路1号院门口（重拨）",
+      "description": "热线重拨催促：还是没有水，老人小孩等着用水",
+      "receivedAt": "2026-11-26T03:40:00+08:00",
+      "photoRefs": []
+    }
+  }
+}

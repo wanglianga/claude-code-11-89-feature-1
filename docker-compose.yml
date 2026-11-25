@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: water-repair-db
+    environment:
+      POSTGRES_DB: ccdev
+      POSTGRES_USER: ccdev
+      POSTGRES_PASSWORD: ccdev
+      TZ: Asia/Shanghai
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccdev -d ccdev"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: water-repair-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:postgresql://db:5432/ccdev
+      DB_USER: ccdev
+      DB_PASSWORD: ccdev
+      SEED_ENABLED: "true"
+      TZ: Asia/Shanghai
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  pgdata:

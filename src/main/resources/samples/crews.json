@@ -1,0 +1,53 @@
+{
+  "crews": [
+    {
+      "code": "C_SOLE",
+      "name": "管网维修三班（唯一资质装备齐备的持证维修班组）",
+      "shiftStart": "00:00",
+      "shiftEnd": "16:00",
+      "contactPhone": "13800001111",
+      "active": true,
+      "primaryVehicleCode": "VEH-1",
+      "qualificationCodes": ["Q_INSPECT", "Q_REPAIR", "Q_VALVE_STD", "Q_VALVE_LARGE"],
+      "standardToolCodes": ["TOOL-CLAMP", "TOOL-WELDER"]
+    },
+    {
+      "code": "C_SCOUT",
+      "name": "应急勘查一班",
+      "shiftStart": "03:00",
+      "shiftEnd": "12:00",
+      "contactPhone": "13800002222",
+      "active": true,
+      "primaryVehicleCode": "VEH-SCOUT",
+      "qualificationCodes": ["Q_INSPECT"],
+      "standardToolCodes": ["TOOL-DETECTOR"]
+    },
+    {
+      "code": "C_NORES",
+      "name": "维修预备二班（资质齐全但车辆工具不可用）",
+      "shiftStart": "00:00",
+      "shiftEnd": "23:59",
+      "contactPhone": "13800003333",
+      "active": true,
+      "primaryVehicleCode": "VEH-MAINT",
+      "qualificationCodes": ["Q_INSPECT", "Q_REPAIR", "Q_VALVE_STD", "Q_VALVE_LARGE"],
+      "standardToolCodes": ["TOOL-BROKEN"]
+    }
+  ],
+  "vehicles": [
+    { "code": "VEH-1", "name": "应急抢修车", "plateNo": "WJ·G1001", "available": true, "unavailableReason": null },
+    { "code": "VEH-SCOUT", "name": "管线勘查车", "plateNo": "WJ·K2002", "available": true, "unavailableReason": null },
+    { "code": "VEH-MAINT", "name": "备用抢修车", "plateNo": "WJ·X3003", "available": false, "unavailableReason": "发动机故障进厂维修" }
+  ],
+  "tools": [
+    { "code": "TOOL-CLAMP", "name": "管道堵漏夹具组", "available": true, "unavailableReason": null },
+    { "code": "TOOL-WELDER", "name": "防爆电焊机", "available": true, "unavailableReason": null },
+    { "code": "TOOL-DETECTOR", "name": "听漏与气体检测仪", "available": true, "unavailableReason": null },
+    { "code": "TOOL-BROKEN", "name": "堵漏工具组（校准/检修中）", "available": false, "unavailableReason": "超期未检，停用" }
+  ],
+  "permits": [
+    { "code": "POP-V1", "name": "V1 阀门操作票（大阀）", "valveCode": "V1" },
+    { "code": "POP-V2", "name": "V2 阀门操作票", "valveCode": "V2" },
+    { "code": "POP-V3", "name": "V3 阀门操作票", "valveCode": "V3" }
+  ]
+}
