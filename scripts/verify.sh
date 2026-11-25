@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 等待服务就绪后执行端到端回放。用法：scripts/verify.sh [base_url]
+# 等待服务就绪后执行端到端回放（抢修调度主线 + 道路施工许可审查）。
+# 用法：scripts/verify.sh [base_url]
 set -euo pipefail
 
 BASE_URL="${1:-${BASE_URL:-http://127.0.0.1:8080}}"
@@ -14,4 +15,6 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-exec python3 "$(dirname "$0")/replay.py"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+python3 "${SCRIPT_DIR}/replay.py"
+python3 "${SCRIPT_DIR}/replay_construction.py"

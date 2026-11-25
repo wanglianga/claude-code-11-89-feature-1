@@ -5,7 +5,11 @@
 覆盖：报修原文与归属判断、事故确认、图算法候选关阀组合与精确地址影响集合、
 班组许可/当班窗口/车辆/工具校验、队伍与阀门操作许可的并发互斥、两种稀缺队伍调度路线、
 五类现场回执的顺序约束、复压区间+校时容差核验、复压失败重新派工，以及压力复核推翻后的
-范围/资源占用/通知全链路更正。
+范围/资源占用/通知全链路更正；并在此之上实现**道路施工许可审查**：
+许可多边形/开挖深度/封路/承包商接收，结合管段测绘误差带、保护距离、埋深、重要用户与
+抢修窗口，区分“保护区相交（管线工程师评估）”与“道路可达性（值班调度保留替代进场路径）”
+两类独立影响，提供即时计算与物化候选两条计算路线，许可缩界/测绘升版/抢修窗口变化后
+旧审查结论自动标待复核、禁止自动放行。
 
 > 项目类型：**后端 API 服务**。自带 OpenAPI 3 文档与 Swagger UI，无独立前端页面。
 
@@ -59,7 +63,8 @@ DB_URL='jdbc:postgresql://HOST:5432/DBNAME' DB_USER=u DB_PASSWORD=p \
 
 | 用户名 | 密码 | 角色 | 用途 |
 | --- | --- | --- | --- |
-| `dispatcher` | `Disp@12345` | DISPATCHER | 值班调度员，全部写操作（受理/确认/派工/复核/关单/reset） |
+| `dispatcher` | `Disp@12345` | DISPATCHER | 值班调度员，全部调度写操作（受理/确认/派工/复核/关单/reset），负责施工许可的道路可达性影响与最终放行 |
+| `engineer` | `Eng@12345` | ENGINEER | 管线工程师，负责施工许可的保护区相交评估、现场探测/保护条件/退回与测绘升版 |
 | `crewsole` | `Crew@12345` | CREW（绑定 `C_SOLE`） | 唯一资质装备齐备的持证维修班班长，可提交回执 |
 | `scout` | `Scout@12345` | CREW（绑定 `C_SCOUT`） | 勘查一班 |
 | `viewer` | `View@12345` | VIEWER | 只读角色，写接口返回 403 |
@@ -92,12 +97,16 @@ Authorization: Bearer <token>
 ```bash
 # 终端 1：启动服务（见上）
 
-# 终端 2：
+# 终端 2：抢修调度主线（114 项断言）
 python3 scripts/replay.py
-# 或
+
+# 道路施工许可审查主线（68 项断言）
+python3 scripts/replay_construction.py
+
+# 或一键顺序执行两套回放：
 bash scripts/verify.sh
 # 远端/自定义地址：
-BASE_URL=http://localhost:8080 python3 scripts/replay.py
+BASE_URL=http://localhost:8080 python3 scripts/replay_construction.py
 ```
 
 预期结尾：
@@ -106,6 +115,10 @@ BASE_URL=http://localhost:8080 python3 scripts/replay.py
 ##############################################################################
 # 回放断言结果：PASS=114  FAIL=0
 # 🎉 全部场景断言通过：同段重拨 / 相邻双支管 / 并发互斥 / 复压重派 / 更正链
+ALL_DONE: true
+...
+# 施工许可回放断言结果：PASS=68  FAIL=0
+# 🎉 全部场景断言通过：可能侵入三态 / 两类影响分流 / 三变化待复核 / 两路线一致
 ALL_DONE: true
 ```
 
@@ -150,7 +163,116 @@ ALL_DONE: true
 
 ---
 
-## 4. 手工 API 走查（核心端点）
+## 4. 道路施工许可审查（随题新增，Swagger Tag 07）
+
+### 4.1 领域建模与两类不同影响
+
+许可图形按道路边界粗绘、管线中心线带测绘误差，因此**不能用“坐标最近点单阈值”给布尔结论**。
+模块（`com.waterrepair.construction`，样例 `samples/construction.json`）把影响拆成两类，
+分别建单、分别流转、分别授权：
+
+| 影响类型 | 含义 | 评估角色 | 处置动作 |
+| --- | --- | --- | --- |
+| `PROTECTION` 保护区相交 | 开挖可能进入管线误差带+保护区，垂向还要比对开挖深度与管顶埋深 | 管线工程师 `ENGINEER` | 要求现场探测 / 附加保护条件 / 退回修改 |
+| `ACCESS` 道路可达性 | 封路阻断抢修班组原定进场道路 | 值班调度 `DISPATCHER` | 保留替代进场路径（不适用现场探测） |
+
+保护区判定为**三态**而非布尔（`ConflictEngine`）：
+
+```
+d_nom = 施工多边形边界到管线中心线的最近距离（米，局部工程坐标）
+e     = 测绘位置误差带半宽；P = 法定保护距离
+d_nom = 0            => DEFINITE_INTRUSION  中心线已在开挖界内
+0 < d_nom <= e + P   => POSSIBLE_INTRUSION  真实管线受误差影响可能侵入，不能判安全
+d_nom > e + P        => SAFE                误差带外缘仍远离施工区
+```
+
+题面 **P17**：中心线距开挖边界 **1.6m**、测绘误差 **±0.8m**、保护距离 **2m**，
+`1.6 ≤ 0.8+2 = 2.8` → 回放固定断言结论为 `POSSIBLE_INTRUSION`（可能侵入），
+且开挖 1.5m 已达到管顶埋深 1.2m，垂向接触风险成立；远离施工区的 P18 判 `SAFE` 不误报。
+同一许可封闭建设路，抢修窗口 `RW-001` 原定沿建设路进场 → 生成 `ACCESS_REROUTE`，
+提示保留光明路替代路径，与 P17 的保护区结论是两条独立记录，不合并。
+
+### 4.2 两条计算路线（同一引擎，同输入同结论）
+
+- **路线 A 即时计算** `GET /api/construction/permits/{no}/review/realtime`：
+  每次打开按当前几何重算，结果最新；回放与审批动作均以此为准。
+- **路线 B 物化候选** `GET .../review/materialized`：
+  许可/管网/窗口变化时在同一事务内重建 `candidate_conflict`，旧关系置 `SUPERSEDED`
+  （失效关系立即清除出候选集），每条 ACTIVE 关系快照**许可几何版本 + 对侧版本
+  （管段测绘版本或窗口 revision）**，审批只引用两侧版本与当前一致的关系。
+- `GET .../route-comparison` 逐条核对两条路线的“类型+对象+严重度”集合，
+  回放每个变化节点都断言 `consistent=true`。
+
+### 4.3 待复核：变化后旧结论不能自动放行
+
+每项审批结论（`PermitReviewDecision`）快照两侧版本；以下变化把相关 ACTIVE 结论置
+`PENDING_REVIEW` 并记录原因，放行闸门 `POST .../approve` 在待复核清零前返回 409：
+
+| 变化 | 触发接口 | 待复核原因 |
+| --- | --- | --- |
+| 许可缩界/扩界、深度、日期、封路变化（几何版本+1） | `POST /permits/{no}/changes` | `PERMIT_GEOMETRY_CHANGED`（全部结论） |
+| 管网测绘升版（中心线/误差带更新，测绘版本+1） | `POST /pipes/{code}/survey-revision` | `PIPE_SURVEY_REVISED`（仅该管段 PROTECTION 结论） |
+| 紧急抢修插入/窗口调整（窗口 revision+1） | `POST /windows`、`POST /windows/{code}/changes` | `REPAIR_WINDOW_CHANGED`（相关 ACCESS 结论） |
+
+复核接口 `POST /permits/{no}/decisions/{id}/review`：影响仍成立用 `CONFIRM`
+（关闭旧结论、按当前两侧版本另立 ACTIVE 新结论，历史不抹掉）；影响已消失用 `DISMISS`
+（如许可缩界退出 P17 保护区，对已消失影响强行 CONFIRM 会被 422 拒绝）。
+
+### 4.4 `replay_construction.py` 回放覆盖（68 项断言）
+
+1. 角色分流：调度评保护区 403、工程师评可达性 403、ACCESS 用现场探测 422、VIEWER 403；
+2. P17 三态判定的完整可解释证据链（d_nom/e+P/埋深/重要用户），P18 安全不误报；
+3. 两路线候选集合、版本一致性、证据摘要完全相同；
+4. **测绘升版**：P17 v1→v2 后旧 PROTECTION 结论待复核、ACCESS 不受影响、放行 409，
+   物化关系按 v2 重建且旧关系 SUPERSEDED，复核 CONFIRM 后才重新放行；
+5. **紧急抢修插入**：新窗口自动形成 `ACCESS_BLOCKED` 候选（唯一进场道路被封）；
+   RW-001 改进场道路后旧 ACCESS 结论待复核，替代路径提示由光明路改为滨河巷；
+6. **许可缩界**：全部旧结论待复核、放行被拒；P17 距离变 4.2m 转 SAFE 后 DISMISS，
+   两条 ACCESS 结论 CONFIRM，物化候选清除失效 P17 关系，最终重新放行；
+7. 反向校验：远离保护区与窗口的许可零冲突可直接放行；退回修改（RETURNED）态不能放行。
+
+### 4.5 手工 API 走查
+
+```bash
+B=http://localhost:8080
+DISP="Authorization: Bearer $DISPATCHER_TOKEN"; ENG="Authorization: Bearer $ENGINEER_TOKEN"
+J='Content-Type: application/json'
+
+# 即时/物化审查与两路线对比
+curl -s $B/api/construction/permits/WP-2026-017/review/realtime -H "$DISP" | python3 -m json.tool
+curl -s $B/api/construction/permits/WP-2026-017/review/materialized -H "$DISP"
+curl -s $B/api/construction/permits/WP-2026-017/route-comparison -H "$DISP"
+
+# 工程师对 P17 要求现场探测；调度对封路附加替代路径保护条件
+curl -s -X POST $B/api/construction/permits/WP-2026-017/decisions -H "$ENG" -H "$J" -d '{
+  "impactType":"PROTECTION","targetCode":"P17",
+  "action":"FIELD_SURVEY_REQUIRED","conditionNote":"开挖前人工探明实际走向与埋深"}'
+curl -s -X POST $B/api/construction/permits/WP-2026-017/decisions -H "$DISP" -H "$J" -d '{
+  "impactType":"ACCESS","targetCode":"R-JIANSHE","repairWindowCode":"RW-001",
+  "action":"PROTECTION_CONDITION","conditionNote":"保留光明路替代进场路径"}'
+
+# 测绘升版 / 许可缩界 / 紧急窗口插入
+curl -s -X POST $B/api/construction/pipes/P17/survey-revision -H "$ENG" -H "$J" -d '{
+  "polygon":[[10,11.2],[70,11.2]],"surveyErrorMeters":0.6,
+  "protectionDistanceMeters":2.0,"burialDepthMeters":1.2,"reason":"复测中心线北移"}'
+curl -s -X POST $B/api/construction/permits/WP-2026-017/changes -H "$DISP" -H "$J" -d '{
+  "polygon":[[18,3],[36,3],[36,7],[18,7]],"reason":"施工方案缩界"}'
+curl -s -X POST $B/api/construction/windows -H "$DISP" -H "$J" -d '{
+  "code":"RW-002","title":"紧急爆管抢修","crewCode":"C_SCOUT",
+  "windowStart":"2026-11-27T02:00:00+08:00","windowEnd":"2026-11-27T06:00:00+08:00",
+  "plannedApproachRoadCodes":"R-JIANSHE","note":"紧急插入"}'
+
+# 放行（有待复核/未审批项时 409 PERMIT_NOT_APPROVABLE）
+curl -s -X POST $B/api/construction/permits/WP-2026-017/approve -H "$DISP"
+```
+
+坐标约定：施工/管线几何使用**局部工程坐标（米）**录入（`[x, y]` 数组，x 东向、y 北向），
+所有距离与相交判断在同一坐标系内完成，避免经纬度球面距离歧义；坐标以 JSON 数组提交，
+后端 `PointDto` 负责反序列化。
+
+---
+
+## 5. 手工 API 走查（核心端点）
 
 所有写接口都需要调度员 token。完整 schema 见 Swagger UI。
 
@@ -207,13 +329,14 @@ curl -s $B/api/incidents/1 -H "$H" | python3 -m json.tool
 | 04 事故/方案/通知/复核 | `POST /api/incidents`、`/isolation-plans`、`/notify`、`/pressure-reviews`、`GET /{id}` |
 | 05 派工与互斥 | `/dispatch/scout`、`/dispatch/repair`、`/redispatch`、`/api/assignments/{id}/cancel|complete|issue` |
 | 06 回执与复压 | `POST /api/incidents/{id}/receipts`、`/close`、`POST /api/pressure/verify-repressure` |
+| 07 道路施工许可审查 | `/api/construction/permits`、`/review/realtime|materialized`、`/decisions`、`/pipes/{code}/survey-revision`、`/windows` |
 | 00 回放支持 | `POST /api/admin/reset` |
 
 ---
 
-## 5. 领域模型与关键实现
+## 6. 领域模型与关键实现
 
-### 5.1 随题样例管网（`src/main/resources/samples/network.json`）
+### 6.1 随题样例管网（`src/main/resources/samples/network.json`）
 
 ```
 NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A10-A13
@@ -232,7 +355,7 @@ NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A
 从所有 SOURCE 做可达性遍历；一条管段两端都不可达即判为失压，其上地址全部受影响。
 候选方案枚举全部阀门子集（≤4 阀组合），返回能隔离边界管段的“包含意义最小”组合。
 
-### 5.2 归属与事故边界
+### 6.2 归属与事故边界
 
 - 每条报修永久保存原文（地址、描述、照片引用、接听时刻）。
 - 自动归属按“最长别名命中 → 路口地标 → 坐标半径”的优先级产出
@@ -241,7 +364,7 @@ NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A
 - 热线重拨带 `redialOfReportId/hotlineCallId`：若原线索已在事故中，
   新线索自动以 `REDIAL` 加入同一事故，不产生新事故或派工。
 
-### 5.3 互斥与资格
+### 6.3 互斥与资格
 
 - 资格逐项检查：班组 active、申请窗口落在当班时间（按 Asia/Shanghai）、
   所需资质（`Q_INSPECT/Q_REPAIR/Q_VALVE_STD/Q_VALVE_LARGE`，V1 要大阀许可）、
@@ -253,7 +376,7 @@ NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A
   端点相接的窗口（如 09:20 结束 / 09:30 开始）不冲突。
 - 释放不删行：占用行置 `RELEASED` 并写 `releaseReason/releasedAt`。
 
-### 5.4 回执周期与更正链
+### 6.4 回执周期与更正链
 
 - 顺序固定：`ARRIVAL → ISOLATION → REPAIR → FLUSH → REPRESSURE`，按 `(incident, cycleNo)` 成链。
 - `ISOLATION` 及之后必须由 `REPAIR` 派工单提交；勘查单只能交 `ARRIVAL`。
@@ -267,18 +390,20 @@ NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A
 
 ---
 
-## 6. 本地开发与验证方式（实际执行记录）
+## 7. 本地开发与验证方式（实际执行记录）
 
 以下验证均在本工作区容器内**实际执行通过**（日期 2026-11-25）：
 
 | 验证 | 命令 | 实际结果 |
 | --- | --- | --- |
 | 编译 | `JAVA_HOME=/opt/jdk-25 /opt/maven/bin/mvn -s settings.xml compile` | BUILD SUCCESS |
-| 单元测试 | `... mvn -s settings.xml test` | `ImpactServiceTest` Tests run: 4, Failures: 0, Errors: 0 |
+| 单元测试 | `... mvn -s settings.xml test` | Tests run: 11, Failures: 0, Errors: 0（`ImpactServiceTest` 4 项 + `ConflictEngineTest` 7 项） |
 | 打包 | `... mvn -s settings.xml -DskipTests package` | 生成 `target/water-repair-service.jar`（约 57 MB fat jar） |
 | 真实运行 | `/opt/jdk-25/bin/java -jar target/water-repair-service.jar` | 8080 启动成功，Hibernate 连 PostgreSQL 18.1 建表/播种，日志无 ERROR |
-| 端到端回放 | `python3 scripts/replay.py` | `PASS=114 FAIL=0`，并连续重复 4 次结果一致（含真实双线程并发派单） |
-| 接口文档 | `GET /v3/api-docs`、`/swagger-ui/index.html` | 均 200，OpenAPI 含全部 `/api/**` 路径 |
+| 调度主线回放 | `python3 scripts/replay.py` | `PASS=114 FAIL=0 ALL_DONE: true`（含真实双线程并发派单） |
+| 施工许可回放 | `python3 scripts/replay_construction.py` | `PASS=68 FAIL=0 ALL_DONE: true`（三态判定/两类分流/三变化待复核/两路线一致） |
+| 一键回放 | `bash scripts/verify.sh` | 两套回放顺序执行，均 `ALL_DONE: true` |
+| 接口文档 | `GET /v3/api-docs`、`/swagger-ui/index.html` | 均 200，OpenAPI 含全部 `/api/**` 路径（含 07 施工许可审查分组） |
 
 说明与限制（如实记录）：
 
@@ -290,22 +415,28 @@ NSRC ─ M0 ─ NT0 ─ F1 ─ NV1(V1) ─ F1D ─ NT1 ─ S1 ─ NE1   地址 A
 
 ---
 
-## 7. 目录速览
+## 8. 目录速览
 
 ```
 pom.xml / settings.xml / Dockerfile / docker-compose.yml
-scripts/replay.py                 # 114 断言的端到端回放（纯标准库）
+scripts/replay.py                    # 抢修调度主线 114 断言的端到端回放（纯标准库）
+scripts/replay_construction.py       # 施工许可审查 68 断言回放（三态/两类影响/三变化/两路线）
 src/main/resources/application.yml
-src/main/resources/samples/       # 随题提供的管网/班组/账号/报修/回执样本
+src/main/resources/samples/          # 管网/班组/账号/报修/回执/施工许可样本
+  └─ construction.json               # P17 浅埋支管、道路、封路许可、抢修窗口
 src/main/java/com/waterrepair/
-  auth/        账号、登录 token、角色拦截
-  common/      统一异常、健康检查、首页跳转
-  config/      Web/OpenAPI/播种/reset
-  network/     节点/管段/阀门/地址/压力读数 + 图影响算法
-  report/      报修原文 + 归属判断版本
-  incident/    事故/来源/方案/通知/更正/压力复核
-  crew/        班组/车辆/工具/阀门操作许可
-  dispatch/    派工单 + 资源占用 + 行锁互斥 + 资格校验
-  receipt/     五类顺序回执 + 复压核验
-src/test/java/com/waterrepair/network/ImpactServiceTest.java
+  auth/          账号、登录 token、角色拦截（DISPATCHER/ENGINEER/CREW/VIEWER）
+  common/        统一异常、健康检查、首页跳转
+  config/        Web/OpenAPI/播种/reset
+  network/       节点/管段/阀门/地址/压力读数 + 图影响算法
+  report/        报修原文 + 归属判断版本
+  incident/      事故/来源/方案/通知/更正/压力复核
+  crew/          班组/车辆/工具/阀门操作许可
+  dispatch/      派工单 + 资源占用 + 行锁互斥 + 资格校验
+  receipt/       五类顺序回执 + 复压核验
+  construction/  施工许可/管段防护台账/道路/抢修窗口/候选冲突/审查结论 + ConflictEngine
+    └─ geom/     GeoPoint/Polygon（点包含、折线相交、最近距离、缓冲）等几何原语
+src/test/java/com/waterrepair/
+  network/ImpactServiceTest.java      # 图影响算法单测（4 项）
+  construction/ConflictEngineTest.java# 三态判定/缩界/可达性单测（7 项，含 P17 1.6m 场景）
 ```

@@ -4,6 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.waterrepair.auth.AuthService;
 import com.waterrepair.auth.UserAccount;
 import com.waterrepair.auth.UserAccountRepository;
+import com.waterrepair.construction.ConstructionPermit;
+import com.waterrepair.construction.ConstructionReviewService;
+import com.waterrepair.construction.PipeProtectionProfile;
+import com.waterrepair.construction.RepairWindow;
+import com.waterrepair.construction.RoadSegment;
+import com.waterrepair.construction.geom.GeoPoint;
 import com.waterrepair.crew.Crew;
 import com.waterrepair.crew.CrewRepository;
 import com.waterrepair.crew.OperationPermit;
@@ -58,6 +64,11 @@ public class SeedService {
     private final VehicleRepository vehicleRepo;
     private final ToolItemRepository toolRepo;
     private final OperationPermitRepository permitRepo;
+    private final ConstructionReviewService constructionReviewService;
+    private final com.waterrepair.construction.ConstructionPermitRepository constructionPermitRepo;
+    private final com.waterrepair.construction.PipeProtectionProfileRepository pipeProfileRepo;
+    private final com.waterrepair.construction.RoadSegmentRepository roadRepo;
+    private final com.waterrepair.construction.RepairWindowRepository windowRepo;
 
     public SeedService(ObjectMapper objectMapper, JdbcTemplate jdbcTemplate, AuthService authService,
                        UserAccountRepository userRepo, NetworkNodeRepository nodeRepo,
@@ -65,7 +76,12 @@ public class SeedService {
                        AddressPointRepository addressRepo, GeoLandmarkRepository landmarkRepo,
                        PressureDeviceRepository deviceRepo, PressureReadingRepository readingRepo,
                        CrewRepository crewRepo, VehicleRepository vehicleRepo,
-                       ToolItemRepository toolRepo, OperationPermitRepository permitRepo) {
+                       ToolItemRepository toolRepo, OperationPermitRepository permitRepo,
+                       ConstructionReviewService constructionReviewService,
+                       com.waterrepair.construction.ConstructionPermitRepository constructionPermitRepo,
+                       com.waterrepair.construction.PipeProtectionProfileRepository pipeProfileRepo,
+                       com.waterrepair.construction.RoadSegmentRepository roadRepo,
+                       com.waterrepair.construction.RepairWindowRepository windowRepo) {
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.authService = authService;
@@ -81,6 +97,11 @@ public class SeedService {
         this.vehicleRepo = vehicleRepo;
         this.toolRepo = toolRepo;
         this.permitRepo = permitRepo;
+        this.constructionReviewService = constructionReviewService;
+        this.constructionPermitRepo = constructionPermitRepo;
+        this.pipeProfileRepo = pipeProfileRepo;
+        this.roadRepo = roadRepo;
+        this.windowRepo = windowRepo;
     }
 
     @Transactional
@@ -158,6 +179,56 @@ public class SeedService {
             userRepo.save(new UserAccount(a.username(), authService.encode(a.password()),
                     a.displayName(), a.role(), a.crewCode()));
         }
+
+        seedConstruction();
+    }
+
+    /** 道路施工许可审查样例：P17 浅埋支管（1.6m/±0.8m/保护2m）、封路许可与抢修窗口。 */
+    private void seedConstruction() {
+        SeedDtos.ConstructionSeed seed = readJson("samples/construction.json",
+                SeedDtos.ConstructionSeed.class);
+        for (SeedDtos.ConstructionRoadDto r : seed.roads()) {
+            roadRepo.save(new RoadSegment(r.code(), r.name(), toPoints(r.centerline())));
+        }
+        for (SeedDtos.ConstructionPipeDto p : seed.pipes()) {
+            pipeProfileRepo.save(new PipeProtectionProfile(p.code(), p.name(), p.segmentCode(),
+                    toPoints(p.centerline()), p.surveyVersion(), p.surveyErrorMeters(),
+                    p.protectionDistanceMeters(), p.burialDepthMeters(),
+                    !Boolean.FALSE.equals(p.importantUser()), p.importantUserNote(),
+                    p.updatedReason(), null));
+        }
+        for (SeedDtos.ConstructionWindowDto w : seed.windows()) {
+            windowRepo.save(new RepairWindow(w.code(), w.title(), w.crewCode(),
+                    w.windowStart(), w.windowEnd(), w.plannedApproachRoadCodes(),
+                    w.status(), w.revision(), w.note()));
+        }
+        for (SeedDtos.ConstructionPermitDto p : seed.permits()) {
+            ConstructionPermit permit = new ConstructionPermit();
+            permit.setPermitNo(p.permitNo());
+            permit.setContractor(p.contractor());
+            permit.setTitle(p.title());
+            permit.setPolygon(toPoints(p.polygon()));
+            permit.setExcavationDepthMeters(p.excavationDepthMeters());
+            permit.setStartDate(java.time.LocalDate.parse(p.startDate()));
+            permit.setEndDate(java.time.LocalDate.parse(p.endDate()));
+            permit.setClosedRoadCodes(p.closedRoadCodes() == null ? List.of() : p.closedRoadCodes());
+            permit.setGeometryVersion(1);
+            permit.setStatus("REVIEWING");
+            permit.setLastChangeReason("许可送达水务调度，初始录入");
+            constructionPermitRepo.save(permit);
+            // 播种即按路线 B 物化首批候选冲突关系，与路线 A 共用同一计算引擎
+            constructionReviewService.refreshCandidates(p.permitNo());
+        }
+    }
+
+    private static List<GeoPoint> toPoints(List<List<Double>> coords) {
+        List<GeoPoint> points = new java.util.ArrayList<>();
+        if (coords != null) {
+            for (List<Double> xy : coords) {
+                points.add(new GeoPoint(xy.get(0), xy.get(1)));
+            }
+        }
+        return points;
     }
 
     private <T> T readJson(String path, Class<T> type) {
@@ -183,6 +254,10 @@ public class SeedService {
         m.put("vehicles", vehicleRepo.count());
         m.put("tools", toolRepo.count());
         m.put("permits", permitRepo.count());
+        m.put("constructionPermits", constructionPermitRepo.count());
+        m.put("pipeProfiles", pipeProfileRepo.count());
+        m.put("roads", roadRepo.count());
+        m.put("repairWindows", windowRepo.count());
         return m;
     }
 }

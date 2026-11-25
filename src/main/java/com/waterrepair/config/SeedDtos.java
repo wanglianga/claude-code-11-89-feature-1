@@ -71,4 +71,32 @@ public final class SeedDtos {
     public record AccountDto(String username, String password, String displayName,
                              String role, String crewCode) {
     }
+
+    public record ConstructionSeed(List<ConstructionRoadDto> roads,
+                                   List<ConstructionPipeDto> pipes,
+                                   List<ConstructionPermitDto> permits,
+                                   List<ConstructionWindowDto> windows) {
+    }
+
+    /** [x, y] 顶点数组，局部工程坐标（米）。 */
+    public record ConstructionRoadDto(String code, String name, List<List<Double>> centerline) {
+    }
+
+    public record ConstructionPipeDto(String code, String name, String segmentCode,
+                                      List<List<Double>> centerline, Integer surveyVersion,
+                                      Double surveyErrorMeters, Double protectionDistanceMeters,
+                                      Double burialDepthMeters, Boolean importantUser,
+                                      String importantUserNote, String updatedReason) {
+    }
+
+    public record ConstructionPermitDto(String permitNo, String contractor, String title,
+                                        List<List<Double>> polygon, Double excavationDepthMeters,
+                                        String startDate, String endDate, List<String> closedRoadCodes) {
+    }
+
+    public record ConstructionWindowDto(String code, String title, String crewCode,
+                                        OffsetDateTime windowStart, OffsetDateTime windowEnd,
+                                        String plannedApproachRoadCodes, String status,
+                                        Integer revision, String note) {
+    }
 }

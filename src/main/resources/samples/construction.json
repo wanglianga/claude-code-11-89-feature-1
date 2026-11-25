@@ -1,0 +1,61 @@
+{
+  "roads": [
+    { "code": "R-GUANGMING", "name": "光明路（东西向主通道）", "centerline": [[0, 0], [40, 0], [80, 0]] },
+    { "code": "R-JIANSHE", "name": "建设路（南北向）", "centerline": [[20, -20], [20, 0], [20, 30]] },
+    { "code": "R-XINGFU", "name": "幸福路（南北向）", "centerline": [[60, -20], [60, 0], [60, 30]] },
+    { "code": "R-BINHE", "name": "滨河巷（南北向备用通道）", "centerline": [[40, -30], [40, 0], [40, 25]] }
+  ],
+  "pipes": [
+    {
+      "code": "P17",
+      "name": "P17 浅埋供水支管（第三医院方向）",
+      "segmentCode": "S2",
+      "centerline": [[10, 11.6], [70, 11.6]],
+      "surveyVersion": 1,
+      "surveyErrorMeters": 0.8,
+      "protectionDistanceMeters": 2.0,
+      "burialDepthMeters": 1.2,
+      "importantUser": true,
+      "importantUserNote": "市第三医院供水支管，浅埋，中断将影响医院诊疗",
+      "updatedReason": "初始测绘台账"
+    },
+    {
+      "code": "P18",
+      "name": "P18 滨河巷深置干管",
+      "segmentCode": "M0",
+      "centerline": [[0, -15], [80, -15]],
+      "surveyVersion": 1,
+      "surveyErrorMeters": 1.0,
+      "protectionDistanceMeters": 2.0,
+      "burialDepthMeters": 2.5,
+      "importantUser": false,
+      "importantUserNote": null,
+      "updatedReason": "初始测绘台账"
+    }
+  ],
+  "permits": [
+    {
+      "permitNo": "WP-2026-017",
+      "contractor": "宏基市政工程有限公司",
+      "title": "建设路（光明路至幸福路段）道路改造开挖许可",
+      "polygon": [[15, 0], [45, 0], [45, 10], [15, 10]],
+      "excavationDepthMeters": 1.5,
+      "startDate": "2026-11-25",
+      "endDate": "2026-11-28",
+      "closedRoadCodes": ["R-JIANSHE"]
+    }
+  ],
+  "windows": [
+    {
+      "code": "RW-001",
+      "title": "幸福路 S2 支管凌晨抢修窗口",
+      "crewCode": "C_SOLE",
+      "windowStart": "2026-11-26T04:00:00+08:00",
+      "windowEnd": "2026-11-26T09:00:00+08:00",
+      "plannedApproachRoadCodes": "R-JIANSHE,R-GUANGMING",
+      "status": "SCHEDULED",
+      "revision": 1,
+      "note": "班组计划沿建设路进场、光明路作为备选"
+    }
+  ]
+}
